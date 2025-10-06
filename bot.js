@@ -2,7 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 
 const TOKEN = process.env.BOT_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID || null;
@@ -37,106 +37,89 @@ function setBotRoom(guildId, channelId){ config[guildId] = config[guildId] || {}
 function getBotRoom(guildId){ return config[guildId] ? config[guildId].botRoom : null; }
 
 function rand(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
-function matchLibrary(content, library){
-  const text = content.toLowerCase();
-  const matches = [];
-  for (const item of library) {
-    for (const trig of item.triggers) {
-      const t = trig.toLowerCase();
-      try {
-        if (item.type === 'exact' && text === t) { matches.push(item); break; }
-        else if (item.type === 'contains' && text.includes(t)) { matches.push(item); break; }
-        else if (item.type === 'regex') { const re = new RegExp(t); if (re.test(text)) { matches.push(item); break; } }
-      } catch(e){ console.error('bad trig',trig,e); }
-    }
-  }
-  return matches;
-}
 
 const userCooldowns = new Map();
-const COOLDOWN_MS = 8000;
+const COOLDOWN_MS = 5000;
+
+function checkCooldown(userId) {
+  const now = Date.now();
+  const last = userCooldowns.get(userId) || 0;
+  if (now - last < COOLDOWN_MS) {
+    const remaining = Math.ceil((COOLDOWN_MS - (now - last)) / 1000);
+    return { onCooldown: true, remaining };
+  }
+  userCooldowns.set(userId, now);
+  return { onCooldown: false };
+}
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
-  partials: [Partials.Channel]
+  intents: [GatewayIntentBits.Guilds]
 });
 
 client.once('ready', ()=> {
-  console.log(`Logged in as ${client.user.tag}`);
-});
-
-client.on('messageCreate', async (message) => {
-  try{
-    if (message.author.bot) return;
-    const content = message.content.trim();
-    const guildId = message.guild ? message.guild.id : null;
-    const botRoomId = guildId ? getBotRoom(guildId) : null;
-    const inBotRoom = message.channelId === botRoomId;
-
-    const now = Date.now();
-    const last = userCooldowns.get(message.author.id) || 0;
-    if (now - last < COOLDOWN_MS) return;
-
-    const lowered = content.toLowerCase();
-    const mentioned = message.mentions.has(client.user) || lowered.includes(client.user.username.toLowerCase()) || lowered.includes('بوت');
-    const looksLikeQuestion = content.includes('؟') || /\b(كيف|لماذا|ليش|وش|ما|هل|وين|متى)\b/i.test(content) || content.endsWith('?');
-
-    if (mentioned && looksLikeQuestion && !inBotRoom) {
-      let reply = 'تعال الروم حقي أعطيك 😁';
-      if (botRoomId) reply += ` <#${botRoomId}>`;
-      else reply += ' (أطلب من الأدمن يعيّن روم البوت باستخدام /setbotroom)';
-      await message.reply(reply);
-      userCooldowns.set(message.author.id, Date.now());
-      return;
-    }
-
-    if (inBotRoom) {
-      if (/(فكرة|ابغا فكرة|هات فكرة|idea)/i.test(content)) {
-        await message.reply('تبغى الفكرة لأي نوع؟ (مثال: يوتيوب, تيك توك, لعبة, تطبيق, مقال) — اكتب اسم النوع هنا خلال 20 ثانية');
-        const filter = m => m.author.id === message.author.id && m.channelId === message.channelId;
-        const collected = await message.channel.awaitMessages({ filter, max: 1, time: 20000 });
-        if (collected && collected.size > 0) {
-          const answer = collected.first().content.trim().toLowerCase();
-          let candidates = ideasList.filter(it => it.toLowerCase().startsWith(answer));
-          if (candidates.length === 0) candidates = ideasList.filter(it => it.toLowerCase().includes(answer));
-          if (candidates.length === 0) {
-            await message.reply('ما حصلت شي مشابه. هذي فكرة عشوائية بدلًا عنها:\n' + (ideasList.length ? rand(ideasList) : 'مافي أفكار محمّلة'));
-          } else {
-            await message.reply('حلو! جرب هالفكرة:\n' + rand(candidates));
-          }
-        } else {
-          await message.reply('ما وصلني رد منك — إذا تبي جرب /idea أو اكتب \"فكرة\" مرة ثانية داخل روم البوت.');
-        }
-        userCooldowns.set(message.author.id, Date.now());
-        return;
-      }
-
-      const matches = [...matchLibrary(content, responsesData.common || []), ...matchLibrary(content, responsesData.extended || [])];
-      if (matches.length > 0) {
-        const chosen = rand(matches);
-        await message.reply(rand(chosen.responses));
-        userCooldowns.set(message.author.id, Date.now());
-      }
-      return;
-    }
-
-    const matches = matchLibrary(content, responsesData.common || []);
-    if (matches.length > 0) {
-      const chosen = rand(matches);
-      await message.reply(rand(chosen.responses));
-      userCooldowns.set(message.author.id, Date.now());
-    }
-  } catch(err) {
-    console.error('messageCreate error', err);
-  }
+  console.log(`✅ Logged in as ${client.user.tag}`);
+  console.log(`🤖 البوت جاهز ويعمل بنظام Slash Commands فقط`);
 });
 
 async function registerCommands() {
   const commands = [
-    new SlashCommandBuilder().setName('idea').setDescription('يعطيك فكرة عشوائية (سيسألك عن النوع داخل روم البوت)').toJSON(),
+    new SlashCommandBuilder()
+      .setName('idea')
+      .setDescription('يعطيك فكرة إبداعية حسب النوع')
+      .addStringOption(option =>
+        option.setName('type')
+          .setDescription('نوع الفكرة')
+          .setRequired(true)
+          .addChoices(
+            { name: '📹 يوتيوب', value: 'يوتيوب' },
+            { name: '🎵 تيك توك', value: 'تيك توك' },
+            { name: '🎮 لعبة', value: 'لعبة' },
+            { name: '📱 تطبيق', value: 'تطبيق' },
+            { name: '📝 مقال', value: 'مقال' },
+            { name: '🎲 عشوائي', value: 'عشوائي' }
+          ))
+      .toJSON(),
+    
+    new SlashCommandBuilder()
+      .setName('greet')
+      .setDescription('احصل على تحية من البوت')
+      .addStringOption(option =>
+        option.setName('greeting')
+          .setDescription('نوع التحية')
+          .setRequired(false)
+          .addChoices(
+            { name: '👋 سلام', value: 'سلام' },
+            { name: '🌅 صباح', value: 'صباح' },
+            { name: '🌙 مساء', value: 'مساء' },
+            { name: '❓ كيف حالك', value: 'حال' }
+          ))
+      .toJSON(),
+    
+    new SlashCommandBuilder()
+      .setName('advice')
+      .setDescription('احصل على نصيحة أو رد محفز')
+      .addStringOption(option =>
+        option.setName('topic')
+          .setDescription('الموضوع')
+          .setRequired(false)
+          .addChoices(
+            { name: '💪 تحفيز', value: 'تحفيز' },
+            { name: '📚 تعلم', value: 'تعلم' },
+            { name: '💻 برمجة', value: 'برمجة' },
+            { name: '🎨 تصميم', value: 'تصميم' },
+            { name: '🎯 نصيحة عامة', value: 'نصيحة' },
+            { name: '😌 راحة نفسية', value: 'راحة' }
+          ))
+      .toJSON(),
+    
+    new SlashCommandBuilder()
+      .setName('help')
+      .setDescription('شرح كيفية استخدام البوت')
+      .toJSON(),
+    
     new SlashCommandBuilder()
       .setName('setbotroom')
-      .setDescription('يحدد روم البوت (Admins only)')
+      .setDescription('يحدد روم البوت (للأدمن فقط)')
       .addChannelOption(opt => opt.setName('channel').setDescription('اختر الروم').setRequired(true))
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
       .toJSON()
@@ -144,34 +127,153 @@ async function registerCommands() {
 
   const rest = new REST({ version: '10' }).setToken(TOKEN);
   try {
+    console.log('⏳ جاري تسجيل الأوامر...');
     if (GUILD_ID && CLIENT_ID) {
       await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
-      console.log('Registered guild commands');
+      console.log('✅ تم تسجيل الأوامر في السيرفر المحدد');
     } else if (CLIENT_ID) {
       await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-      console.log('Registered global commands (may take up to 1 hour)');
+      console.log('✅ تم تسجيل الأوامر بشكل عام (قد تستغرق حتى ساعة للظهور)');
     } else {
-      console.warn('CLIENT_ID not provided; skipping command registration.');
+      console.warn('⚠️ CLIENT_ID غير موجود، لن يتم تسجيل الأوامر. أضف CLIENT_ID في Secrets.');
     }
   } catch(e) {
-    console.error('Failed to register commands', e);
+    console.error('❌ فشل تسجيل الأوامر:', e);
   }
 }
 
 client.on('interactionCreate', async (interaction) => {
   try {
     if (!interaction.isChatInputCommand()) return;
+
+    const cooldown = checkCooldown(interaction.user.id);
+    if (cooldown.onCooldown) {
+      return interaction.reply({ 
+        content: `⏰ انتظر ${cooldown.remaining} ثانية قبل استخدام أمر آخر`, 
+        ephemeral: true 
+      });
+    }
+
     if (interaction.commandName === 'idea') {
-      await interaction.reply({ content: 'اكتب \"فكرة\" داخل روم البوت ثم حدّد النوع (يوتيوب/تيك توك/لعبة/تطبيق/مقال).', ephemeral: true });
+      const type = interaction.options.getString('type');
+      let idea;
+
+      if (type === 'عشوائي' || !ideasList.length) {
+        idea = ideasList.length ? rand(ideasList) : 'مافي أفكار محمّلة حالياً';
+      } else {
+        let candidates = ideasList.filter(it => it.toLowerCase().startsWith(type.toLowerCase()));
+        if (candidates.length === 0) {
+          candidates = ideasList.filter(it => it.toLowerCase().includes(type.toLowerCase()));
+        }
+        if (candidates.length === 0) {
+          idea = `ما حصلت أفكار مناسبة لـ "${type}". هذي فكرة عشوائية:\n${rand(ideasList)}`;
+        } else {
+          idea = rand(candidates);
+        }
+      }
+
+      await interaction.reply({ 
+        content: `💡 **فكرة ${type}:**\n${idea}`,
+        ephemeral: false
+      });
+
+    } else if (interaction.commandName === 'greet') {
+      const greetType = interaction.options.getString('greeting') || 'سلام';
+      let response;
+
+      if (greetType === 'سلام') {
+        const greetings = responsesData.common.find(r => r.triggers.some(t => t.includes('السلام')));
+        response = greetings ? rand(greetings.responses) : 'وعليكم السلام! 👋';
+      } else if (greetType === 'صباح') {
+        const greetings = responsesData.common.find(r => r.triggers.some(t => t.includes('صباح')));
+        response = greetings ? rand(greetings.responses) : 'صباح النور! ☀️';
+      } else if (greetType === 'مساء') {
+        const greetings = responsesData.common.find(r => r.triggers.some(t => t.includes('مساء')));
+        response = greetings ? rand(greetings.responses) : 'مساء الخير! 🌙';
+      } else if (greetType === 'حال') {
+        const greetings = responsesData.common.find(r => r.triggers.some(t => t.includes('كيف حالك')));
+        response = greetings ? rand(greetings.responses) : 'الحمد لله بخير! وأنت؟ 😊';
+      }
+
+      await interaction.reply({ content: response, ephemeral: false });
+
+    } else if (interaction.commandName === 'advice') {
+      const topic = interaction.options.getString('topic') || 'نصيحة';
+      let response;
+
+      const topicMap = {
+        'تحفيز': ['تحفيز', 'حماس', 'دافع'],
+        'تعلم': ['تعلم', 'دراسة'],
+        'برمجة': ['برمجة', 'كود', 'برمج'],
+        'تصميم': ['تصميم', 'ديزاين'],
+        'نصيحة': ['نصيحة', 'نصحني'],
+        'راحة': ['تعبان', 'ضايق', 'ملل']
+      };
+
+      const keywords = topicMap[topic] || ['نصيحة'];
+      let foundResponse = null;
+
+      for (const keyword of keywords) {
+        foundResponse = responsesData.extended.find(r => 
+          r.triggers.some(t => t.toLowerCase().includes(keyword.toLowerCase()))
+        );
+        if (foundResponse) break;
+      }
+
+      response = foundResponse ? rand(foundResponse.responses) : 'أفضل نصيحة: كن نفسك واستمر في التطوير! 💪';
+
+      await interaction.reply({ content: `💭 **${topic}:**\n${response}`, ephemeral: false });
+
+    } else if (interaction.commandName === 'help') {
+      const helpText = `
+📖 **دليل استخدام البوت:**
+
+**الأوامر المتاحة:**
+
+🎯 \`/idea [النوع]\` - احصل على فكرة إبداعية
+   • يوتيوب - أفكار محتوى يوتيوب
+   • تيك توك - أفكار فيديوهات قصيرة
+   • لعبة - أفكار ألعاب
+   • تطبيق - أفكار تطبيقات
+   • مقال - أفكار مقالات
+   • عشوائي - فكرة عشوائية
+
+👋 \`/greet [نوع]\` - احصل على تحية
+   • سلام - تحية عامة
+   • صباح - تحية صباحية
+   • مساء - تحية مسائية
+   • كيف حالك - سؤال عن الحال
+
+💡 \`/advice [الموضوع]\` - احصل على نصيحة
+   • تحفيز - كلمات محفزة
+   • تعلم - نصائح تعليمية
+   • برمجة - نصائح برمجية
+   • تصميم - نصائح تصميم
+   • نصيحة عامة - نصائح متنوعة
+   • راحة نفسية - كلمات مريحة
+
+⚙️ \`/setbotroom\` - تحديد روم البوت (للأدمن)
+
+📌 **ملاحظة:** البوت يعمل الآن بنظام Slash Commands فقط
+`;
+
+      await interaction.reply({ content: helpText, ephemeral: true });
+
     } else if (interaction.commandName === 'setbotroom') {
       if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) {
-        return interaction.reply({ content: 'ما عندك صلاحية تستخدم هالأمر.', ephemeral: true });
+        return interaction.reply({ content: '❌ ما عندك صلاحية تستخدم هالأمر.', ephemeral: true });
       }
       const channel = interaction.options.getChannel('channel');
       setBotRoom(interaction.guildId, channel.id);
-      await interaction.reply({ content: `تم تعيين روم البوت: <#${channel.id}>`, ephemeral: false });
+      await interaction.reply({ content: `✅ تم تعيين روم البوت: <#${channel.id}>`, ephemeral: false });
     }
-  } catch(e) { console.error('interaction error', e); }
+
+  } catch(e) { 
+    console.error('❌ خطأ في معالجة الأمر:', e);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: 'حدث خطأ أثناء تنفيذ الأمر', ephemeral: true });
+    }
+  }
 });
 
 (async () => {
@@ -180,6 +282,6 @@ client.on('interactionCreate', async (interaction) => {
 })();
 
 const app = express();
-app.get('/', (req, res) => res.send('Bot is running'));
+app.get('/', (req, res) => res.send('🤖 Bot is running - Slash Commands Only'));
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Health server listening on port ${PORT}`));
+app.listen(PORT, () => console.log(`🌐 Health server listening on port ${PORT}`));
