@@ -1,0 +1,485 @@
+تمام — عندك حزمة جاهزة تماماً ترفعها على Replit، كل المكتبات والإعدادات مكتوبة حرف-بحرف، وشرحت لك بالخطوات المفصّلة (حتى لو ما تغلط). كل اللي مطلوب منك: توضع التوكن في Secrets وتحمّل ملفات الـ JSON (لو حاب أرفعها لك مباشرة أرسلك روابط التحميل).
+
+
+---
+
+قائمة الملفات التي تحتاج ترفعها إلى Replit (أسماء الملفات بالضبط)
+
+1. package.json
+
+
+2. bot.js
+
+
+3. responses.json  (ملف المكتبة — ارفع الملف الكبير الذي تحمّلتَه أو استخدم الرابط اللي تحت)
+
+
+4. ideas.json     (ملف الأفكار — يحتوي 1200 فكرة، الرابط تحت)
+
+
+5. (اختياري) config.json — لو ما رفعته البوت سيخلقه عند التشغيل. يمكنك فقط رفع ملف فارغ {} أو لا ترفعه.
+
+
+
+> ملاحظة: لقد جهزت لك ideas.json وresponses.json كبيرة — روابط التحميل موجودة بعد التعليمات (سكربت أنشأها وحفظها).
+
+
+
+
+---
+
+الملفات (انسخها حرف-بحرف)
+
+1) package.json
+
+{
+  "name": "discord-canned-responder",
+  "version": "1.0.0",
+  "description": "Canned responder bot (Arabic) - run on Replit",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "engines": {
+    "node": "18.x"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.18.2"
+  }
+}
+
+
+---
+
+2) bot.js
+
+(كامل — ارفع كما هو إلى Replit)
+
+// bot.js
+require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+const express = require('express');
+const { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+
+const TOKEN = process.env.BOT_TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID || null;
+const GUILD_ID = process.env.GUILD_ID || null;
+
+if (!TOKEN) {
+  console.error("Missing BOT_TOKEN in environment. ضع التوكن في Secrets باسم BOT_TOKEN");
+  process.exit(1);
+}
+
+const DATA_DIR = __dirname;
+function loadJSON(name, fallback) {
+  try {
+    const p = path.join(DATA_DIR, name);
+    if (fs.existsSync(p)) {
+      return JSON.parse(fs.readFileSync(p, 'utf8'));
+    }
+  } catch (e) {
+    console.error("fail load", name, e);
+  }
+  return fallback;
+}
+
+// ردود وأفكار — ارفع responses.json و ideas.json في جذر المشروع
+const responsesData = loadJSON('responses.json', { common: [], extended: [] });
+const ideasList = loadJSON('ideas.json', []);
+
+const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
+let config = {};
+try { if (fs.existsSync(CONFIG_FILE)) config = JSON.parse(fs.readFileSync(CONFIG_FILE,'utf8')); } catch(e){console.error(e);}
+function saveConfig(){ fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2)); }
+function setBotRoom(guildId, channelId){ config[guildId] = config[guildId] || {}; config[guildId].botRoom = channelId; saveConfig(); }
+function getBotRoom(guildId){ return config[guildId] ? config[guildId].botRoom : null; }
+
+function rand(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+function matchLibrary(content, library){
+  const text = content.toLowerCase();
+  const matches = [];
+  for (const item of library) {
+    for (const trig of item.triggers) {
+      const t = trig.toLowerCase();
+      try {
+        if (item.type === 'exact' && text === t) { matches.push(item); break; }
+        else if (item.type === 'contains' && text.includes(t)) { matches.push(item); break; }
+        else if (item.type === 'regex') { const re = new RegExp(t); if (re.test(text)) { matches.push(item); break; } }
+      } catch(e){ console.error('bad trig',trig,e); }
+    }
+  }
+  return matches;
+}
+
+const userCooldowns = new Map();
+const COOLDOWN_MS = 8000;
+
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  partials: [Partials.Channel]
+});
+
+client.once('ready', ()=> {
+  console.log(`Logged in as ${client.user.tag}`);
+});
+
+// التعامل مع الرسائل
+client.on('messageCreate', async (message) => {
+  try{
+    if (message.author.bot) return;
+    const content = message.content.trim();
+    const guildId = message.guild ? message.guild.id : null;
+    const botRoomId = guildId ? getBotRoom(guildId) : null;
+    const inBotRoom = message.channelId === botRoomId;
+
+    const now = Date.now();
+    const last = userCooldowns.get(message.author.id) || 0;
+    if (now - last < COOLDOWN_MS) return;
+
+    const lowered = content.toLowerCase();
+    const mentioned = message.mentions.has(client.user) || lowered.includes(client.user.username.toLowerCase()) || lowered.includes('بوت');
+    const looksLikeQuestion = content.includes('؟') || /\b(كيف|لماذا|ليش|وش|ما|هل|وين|متى)\b/i.test(content) || content.endsWith('?');
+
+    if (mentioned && looksLikeQuestion && !inBotRoom) {
+      let reply = 'تعال الروم حقي أعطيك 😁';
+      if (botRoomId) reply += ` <#${botRoomId}>`;
+      else reply += ' (أطلب من الأدمن يعيّن روم البوت باستخدام /setbotroom)';
+      await message.reply(reply);
+      userCooldowns.set(message.author.id, Date.now());
+      return;
+    }
+
+    // داخل روم البوت: إمكانية السؤال عن فكرة مع متابع
+    if (inBotRoom) {
+      if (/(فكرة|ابغا فكرة|هات فكرة|idea)/i.test(content)) {
+        await message.reply('تبغى الفكرة لأي نوع؟ (مثال: يوتيوب, تيك توك, لعبة, تطبيق, مقال) — اكتب اسم النوع هنا خلال 20 ثانية');
+        const filter = m => m.author.id === message.author.id && m.channelId === message.channelId;
+        const collected = await message.channel.awaitMessages({ filter, max: 1, time: 20000 });
+        if (collected && collected.size > 0) {
+          const answer = collected.first().content.trim().toLowerCase();
+          // أبحث في ideasList عن بدايات أو احتواء النص
+          let candidates = ideasList.filter(it => it.toLowerCase().startsWith(answer));
+          if (candidates.length === 0) candidates = ideasList.filter(it => it.toLowerCase().includes(answer));
+          if (candidates.length === 0) {
+            await message.reply('ما حصلت شي مشابه. هذي فكرة عشوائية بدلًا عنها:\n' + (ideasList.length ? rand(ideasList) : 'مافي أفكار محمّلة'));
+          } else {
+            await message.reply('حلو! جرب هالفكرة:\n' + rand(candidates));
+          }
+        } else {
+          await message.reply('ما وصلني رد منك — إذا تبي جرب /idea أو اكتب \"فكرة\" مرة ثانية داخل روم البوت.');
+        }
+        userCooldowns.set(message.author.id, Date.now());
+        return;
+      }
+
+      // مطابقة كاملة (common + extended)
+      const matches = [...matchLibrary(content, responsesData.common || []), ...matchLibrary(content, responsesData.extended || [])];
+      if (matches.length > 0) {
+        const chosen = rand(matches);
+        await message.reply(rand(chosen.responses));
+        userCooldowns.set(message.author.id, Date.now());
+      }
+      return;
+    }
+
+    // خارج روم البوت -> فقط common
+    const matches = matchLibrary(content, responsesData.common || []);
+    if (matches.length > 0) {
+      const chosen = rand(matches);
+      await message.reply(rand(chosen.responses));
+      userCooldowns.set(message.author.id, Date.now());
+    }
+  } catch(err) {
+    console.error('messageCreate error', err);
+  }
+});
+
+// أوامر سلاش: /idea و /setbotroom
+async function registerCommands() {
+  const commands = [
+    new SlashCommandBuilder().setName('idea').setDescription('يعطيك فكرة عشوائية (سيسألك عن النوع داخل روم البوت)').toJSON(),
+    new SlashCommandBuilder()
+      .setName('setbotroom')
+      .setDescription('يحدد روم البوت (Admins only)')
+      .addChannelOption(opt => opt.setName('channel').setDescription('اختر الروم').setRequired(true))
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+      .toJSON()
+  ];
+
+  const rest = new REST({ version: '10' }).setToken(TOKEN);
+  try {
+    if (GUILD_ID && CLIENT_ID) {
+      await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
+      console.log('Registered guild commands');
+    } else if (CLIENT_ID) {
+      await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+      console.log('Registered global commands (may take up to 1 hour)');
+    } else {
+      console.warn('CLIENT_ID not provided; skipping command registration.');
+    }
+  } catch(e) {
+    console.error('Failed to register commands', e);
+  }
+}
+
+client.on('interactionCreate', async (interaction) => {
+  try {
+    if (!interaction.isChatInputCommand()) return;
+    if (interaction.commandName === 'idea') {
+      await interaction.reply({ content: 'اكتب \"فكرة\" داخل روم البوت ثم حدّد النوع (يوتيوب/تيك توك/لعبة/تطبيق/مقال).', ephemeral: true });
+    } else if (interaction.commandName === 'setbotroom') {
+      if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) {
+        return interaction.reply({ content: 'ما عندك صلاحية تستخدم هالأمر.', ephemeral: true });
+      }
+      const channel = interaction.options.getChannel('channel');
+      setBotRoom(interaction.guildId, channel.id);
+      await interaction.reply({ content: `تم تعيين روم البوت: <#${channel.id}>`, ephemeral: false });
+    }
+  } catch(e) { console.error('interaction error', e); }
+});
+
+(async () => {
+  await registerCommands();
+  await client.login(TOKEN);
+})();
+
+// health endpoint (so UptimeRobot can ping)
+const app = express();
+app.get('/', (req, res) => res.send('Bot is running'));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Health server listening on port ${PORT}`));
+
+
+---
+
+3) config.json (اختياري — إذا لم ترفعه، البوت سيخلقه عند استخدام /setbotroom)
+
+{}
+
+
+---
+
+ملفيّات الـ JSON الكبيرة (جاهزة للتحميل)
+
+ideas.json (1200 فكرة) — تنزيل:
+sandbox:/mnt/data/ideas.json
+(في Replit رفع الملف في root بنفس الاسم ideas.json)
+
+responses.json — تنزيل:
+sandbox:/mnt/data/responses.json
+
+README_bot_files.json (ملخص الأعداد) — تنزيل:
+sandbox:/mnt/data/README_bot_files.json
+
+
+> طريقة الاستعمال: حمّل الملفات من هذه الروابط على جهازك ثم اسحبها إلى Replit (أو اضغط Upload في شجرة الملفات داخل Replit).
+
+
+
+
+---
+
+خطوة بخطوة على Replit — تفصيل الممل (لا تغلط)
+
+1. إنشاء Repl
+
+افتح https://replit.com → اضغط Create → اختر Node.js → سمّه discord-canned-responder أو أي اسم.
+
+
+
+2. نسخ/رفع الملفات
+
+في شجرة الملفات على اليسار: اضغط ➕ New File ثم أنشئ الملفات بالأسامي أعلاه (package.json, bot.js, responses.json, ideas.json, config.json).
+
+بدلاً من النسخ، أسهل: استخدم زر Upload file وارفَع responses.json و ideas.json من الكمبيوتر (الملفات الكبيرة).
+
+تأكد أن الملفات في جذر المشروع (root)، ليس داخل مجلد فرعي.
+
+
+
+3. تعديل Run (اختياري)
+
+Replit عادة يتعرف على package.json ويشغّل npm start تلقائياً. إن أردت تأكيد: افتح ملف .replit (إن وُجد) أو أنشئ واحداً بمحتوى:
+
+run = "npm start"
+
+
+
+4. إضافة Secrets (اللي بتحطهم بنفسك — توكن البوت فقط كافٍ ولكن يفضّل CLIENT_ID و GUILD_ID)
+
+اضغط على أيقونة القفل أو Tools → Secrets (Environment variables).
+
+أضف القيم:
+
+Key: BOT_TOKEN  — Value: أدخل التوكن اللي نسخته من Discord Developer Portal
+
+Key: CLIENT_ID — Value: معرف التطبيق (Application ID) (اختياري لكن أنصح به)
+
+Key: GUILD_ID  — Value: معرف سيرفر الاختبار (اختياري لكن لو حطيته تسجّل الأوامر فورياً في هذا السيرفر)
+
+
+مهم: لا تضع BOT_TOKEN في كود ظاهري. استخدم Secrets فقط.
+
+
+
+5. تنصيب الحزم (لو احتاجت) وتشغيل
+
+افتح الـ Shell في Replit (Terminal) وشغّل:
+
+npm install
+npm start
+
+ستظهر رسائل في Console: Logged in as <botname> و Health server listening on port ...
+
+
+
+6. دعوة البوت للسيرفر
+
+افتح Discord Developer Portal → اختر تطبيقك → OAuth2 → URL Generator
+
+Scopes: bot, applications.commands
+
+Bot Permissions: ضَع فقط ما تحتاجه. الحد الأدنى المقترح: View Channels + Send Messages
+
+(قيمة الأرقام: View Channels (1024) + Send Messages (2048) => مجموع 3072)
+
+
+أو استخدم الرابط التالي واستبدل CLIENT_ID بمعرف تطبيقك:
+
+https://discord.com/api/oauth2/authorize?client_id=CLIENT_ID&permissions=3072&scope=bot%20applications.commands
+
+
+افتح الرابط وادعُ البوت إلى سيرفرك الذي تملك صلاحيات إدارة فيه.
+
+
+
+7. تفعيل Intents
+
+في Developer Portal → Bot → Privileged Gateway Intents: فعّل MESSAGE CONTENT INTENT (ضروري حتى يقرأ البوت محتوى الرسائل).
+
+بعد التفعيل: احفظ وارجع لإعادة تشغيل البوت في Replit (Stop ثم Run أو إعادة تشغيل).
+
+
+
+8. تعيين روم البوت
+
+بعد أن يعمل البوت وظهر في السيرفر، ادعو /setbotroom (أمر للمشرفين) واختر القناة التي تريد أن تكون "روم البوت".
+
+أو اكتب في القناة المعيّنة: فكرة -> البوت سيسأل النوع.
+
+
+
+9. اختبار سريع
+
+خارج روم البوت: اكتب السلام عليكم → البوت يرد بردود من common.
+
+داخل روم البوت: اكتب فكرة → البوت يسأل النوع (اكتب يوتيوب) → سيعطيك فكرة من ideas.json التي تبدأ بـ يوتيوب أو تحتوي الكلمة.
+
+نادِ البوت خارج الروم: @Bot كيف أبدأ؟ → البوت يرد تعال الروم حقي أعطيك 😁 ويشير للروم إن تم تعيينه.
+
+
+
+
+
+---
+
+تشغيل 24/7 مجاناً (نصائح عملية)
+
+Replit المجاني ينام إذا ما في نشاط. حل مجاني: UptimeRobot (خدمة مجانية) تقوم بعمل ping لصفحة الهيلث كل 5 دقائق.
+
+1. في Replit افتح رابط المشروع العام: عادة https://<username>.<replname>.repl.co/ — اختبره في المتصفح ويجب أن يجيب: Bot is running.
+
+
+2. سجل في https://uptimerobot.com → New Monitor → اختَر HTTP(s) → ضع رابط المشروع → interval = 5 minutes.
+
+
+
+ملاحظة: هذا ليس مضمون 100% لكن عمليّ ويستخدمه كثيرين. الحل النهائي المتواصل هو Replit paid (Always On).
+
+
+
+---
+
+ماذا تفعل لو طلع خطأ (قائمة حلول سريعة)
+
+Missing BOT_TOKEN → نسيت تضيف Secret باسم BOT_TOKEN أو خطأ في القيمة. صحّح Secret ثم أعد التشغيل.
+
+البوت لا يرد على الرسائل أبداً → تأكد من:
+
+لديك Message Content Intent مفعّل في Discord Developer Portal.
+
+البوت لديه صلاحية رؤية القناة وقراءة الرسائل (View Channels, Read Messages).
+
+
+أوامر السلاش (slash commands) ما ظهرت:
+
+لو سجلّتها بشكل global فممكن تاخذ حتى ساعة للظهور. للحل: ضع GUILD_ID في Secrets لتسجيل الأوامر في سيرفر اختبار فوراً.
+
+
+responses.json أو ideas.json not found:
+
+تأكد أن الملفات بالاسم الصحيح وأنها في جذر Replit. لا تضعها داخل مجلد فرعي إلا وعدّلت المسارات في الكود.
+
+
+TypeError عند استخدام interaction.memberPermissions:
+
+تأكد أن البوت لديه صلاحيات صحيحة، وأعد تشغيل البوت.
+
+
+إذا ظهر خطأ عن awaitMessages أو collector: تأكد أنك تجيب خلال 20 ثانية وإلا سيقفل الكولكتور — يمكنك تعديل الوقت في الكود (time: 20000).
+
+
+
+---
+
+تذكير (نقطة أمنية مهمة)
+
+لا تشارك توكن البوت مع أي شخص. البوت يمكن التحكم به بالكامل عبر التوكن.
+
+ضع التوكن كـ Secret في Replit فقط، لا ترفعه لمواقع عامة.
+
+
+
+---
+
+أخيراً — خطوات سريعة (التلخيص: 10 خطوات لا تغلط)
+
+1. أنشئ Repl Node.js.
+
+
+2. ارفع package.json وbot.js.
+
+
+3. ارفع responses.json وideas.json (الروابط أعلاه أو ملفاتك الخاصة).
+
+
+4. أضف Secrets: BOT_TOKEN (ضروري)، CLIENT_ID (مستحسن)، GUILD_ID (مستحسن).
+
+
+5. شغّل npm install ثم npm start.
+
+
+6. فعّل Message Content Intent في Developer Portal.
+
+
+7. ادعُ البوت للسيرفر عبر الرابط الذي فيه client_id (التعليمات أعلاه).
+
+
+8. استخدم /setbotroom لتعيين روم البوت.
+
+
+9. جرّب: خارج الروم السلام عليكم، داخل الروم فكرة → رد متابعة.
+
+
+10. (اختياري) فعل UptimeRobot لعمل ping على https://<username>.<replname>.repl.co/ كل 5 دقائق.
+
+
+
+
+---
+
+لو حاب — أعمل لك الآن ZIP جاهز يحتوي كل الملفات (package.json, bot.js, responses.json الكبيرة, ideas.json) وأعطيك رابط تنزيل مباشر لتنزله وترفعه على Replit جاهز دفعة واحدة. اكتب لي بس: "أعطني الZIP" وأنا أجهّزه فوراً وأرسل الرابط.
+
