@@ -2,7 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
 const TOKEN = process.env.BOT_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID || null;
@@ -145,6 +145,35 @@ async function registerCommands() {
 
 client.on('interactionCreate', async (interaction) => {
   try {
+    // معالجة الأزرار التفاعلية
+    if (interaction.isButton()) {
+      if (interaction.customId.startsWith('fullplan_')) {
+        const userId = interaction.customId.split('_')[1];
+        
+        // التحقق من أن الضاغط هو نفس الشخص
+        if (interaction.user.id !== userId) {
+          return interaction.reply({ 
+            content: '❌ هذا الزر خاص بالشخص الذي طلب الفكرة فقط!', 
+            ephemeral: true 
+          });
+        }
+        
+        const details = client.gameDetails?.[userId];
+        if (details) {
+          await interaction.reply({ 
+            content: details, 
+            ephemeral: true // خاص للمستخدم فقط
+          });
+        } else {
+          await interaction.reply({ 
+            content: '❌ انتهت صلاحية هذه الفكرة. استخدم /idea مرة أخرى!', 
+            ephemeral: true 
+          });
+        }
+      }
+      return;
+    }
+    
     if (!interaction.isChatInputCommand()) return;
 
     const cooldown = checkCooldown(interaction.user.id);
@@ -160,7 +189,9 @@ client.on('interactionCreate', async (interaction) => {
       
       if (type === 'لعبة' && godotGames.length > 0) {
         const game = rand(godotGames);
-        const response = `🎮 **فكرة لعبة Godot 4.5:**
+        
+        // الرسالة الأولى - نظرة عامة
+        const part1 = `🎮 **فكرة لعبة Godot 4.5:**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **${game.title}**
@@ -172,22 +203,42 @@ ${game.story}
 ⚙️ **الآليات الأساسية:**
 ${game.mechanics}
 
-🛠️ **خطة التنفيذ:**
-${game.implementation.substring(0, 400)}... [يتبع]
-
 🎬 **المشاهد المطلوبة:**
-${game.scenes.split('\n').slice(0, 6).join('\n')}
+${game.scenes.split('\n').slice(0, 5).join('\n')}
 
-📜 **السكريبتات:**
-${game.scripts.split('\n').slice(0, 5).join('\n')}
+📜 **السكريبتات الأساسية:**
+${game.scripts.split('\n').slice(0, 4).join('\n')}`;
+
+        // الرسالة الثانية - خطة التنفيذ والتفاصيل
+        const part2 = `🛠️ **خطة التنفيذ الكاملة:**
+
+${game.implementation}
+
+🎨 **الأصول المطلوبة:**
+${game.assets}
 
 🚀 **أفكار للتوسع:**
 ${game.expansion}`;
 
+        // زر للحصول على الخطة الكاملة
+        const button = new ActionRowBuilder()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId(`fullplan_${interaction.user.id}_${Date.now()}`)
+              .setLabel('📋 اعرض الخطة الكاملة')
+              .setStyle(ButtonStyle.Primary)
+          );
+
+        // إرسال الرسالة الأولى مع الزر
         await interaction.reply({ 
-          content: response,
+          content: part1,
+          components: [button],
           ephemeral: false
         });
+
+        // حفظ التفاصيل الكاملة للزر
+        client.gameDetails = client.gameDetails || {};
+        client.gameDetails[interaction.user.id] = part2;
 
       } else {
         let idea;
