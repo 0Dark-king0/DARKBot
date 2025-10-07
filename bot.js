@@ -28,6 +28,7 @@ function loadJSON(name, fallback) {
 
 const responsesData = loadJSON('responses.json', { common: [], extended: [] });
 const ideasList = loadJSON('ideas.json', []);
+const godotGames = loadJSON('godot_games.json', []);
 
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 let config = {};
@@ -156,26 +157,59 @@ client.on('interactionCreate', async (interaction) => {
 
     if (interaction.commandName === 'idea') {
       const type = interaction.options.getString('type');
-      let idea;
+      
+      if (type === 'لعبة' && godotGames.length > 0) {
+        const game = rand(godotGames);
+        const response = `🎮 **فكرة لعبة Godot 4.5:**
+━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-      if (type === 'عشوائي' || !ideasList.length) {
-        idea = ideasList.length ? rand(ideasList) : 'مافي أفكار محمّلة حالياً';
+**${game.title}**
+🏷️ النوع: ${game.genre}
+
+📖 **القصة:**
+${game.story}
+
+⚙️ **الآليات الأساسية:**
+${game.mechanics}
+
+🛠️ **خطة التنفيذ:**
+${game.implementation.substring(0, 400)}... [يتبع]
+
+🎬 **المشاهد المطلوبة:**
+${game.scenes.split('\n').slice(0, 6).join('\n')}
+
+📜 **السكريبتات:**
+${game.scripts.split('\n').slice(0, 5).join('\n')}
+
+🚀 **أفكار للتوسع:**
+${game.expansion}`;
+
+        await interaction.reply({ 
+          content: response,
+          ephemeral: false
+        });
+
       } else {
-        let candidates = ideasList.filter(it => it.toLowerCase().startsWith(type.toLowerCase()));
-        if (candidates.length === 0) {
-          candidates = ideasList.filter(it => it.toLowerCase().includes(type.toLowerCase()));
-        }
-        if (candidates.length === 0) {
-          idea = `ما حصلت أفكار مناسبة لـ "${type}". هذي فكرة عشوائية:\n${rand(ideasList)}`;
+        let idea;
+        if (type === 'عشوائي' || !ideasList.length) {
+          idea = ideasList.length ? rand(ideasList) : 'مافي أفكار محمّلة حالياً';
         } else {
-          idea = rand(candidates);
+          let candidates = ideasList.filter(it => it.toLowerCase().startsWith(type.toLowerCase()));
+          if (candidates.length === 0) {
+            candidates = ideasList.filter(it => it.toLowerCase().includes(type.toLowerCase()));
+          }
+          if (candidates.length === 0) {
+            idea = `ما حصلت أفكار مناسبة لـ "${type}". هذي فكرة عشوائية:\n${rand(ideasList)}`;
+          } else {
+            idea = rand(candidates);
+          }
         }
-      }
 
-      await interaction.reply({ 
-        content: `💡 **فكرة ${type}:**\n${idea}`,
-        ephemeral: false
-      });
+        await interaction.reply({ 
+          content: `💡 **فكرة ${type}:**\n${idea}`,
+          ephemeral: false
+        });
+      }
 
     } else if (interaction.commandName === 'greet') {
       const greetType = interaction.options.getString('greeting') || 'سلام';

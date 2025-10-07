@@ -1,0 +1,68 @@
+[
+  {
+    "title": "صحراء الذكريات",
+    "genre": "2D Adventure Puzzle",
+    "story": "بطل اللعبة يستيقظ في صحراء غامضة بدون ذاكرة. كل منطقة في الصحراء تمثل ذكرى من ماضيه - منطقة الطفولة المليئة بالألوان، منطقة الحرب المظلمة، منطقة الحب المضيئة. يجب عليه استعادة ذكرياته قطعة قطعة ليفهم من هو ولماذا وصل هنا.",
+    "mechanics": "- حركة منصات 2D كلاسيكية مع قفز مزدوج\n- حل ألغاز باستخدام الضوء والظل (إضاءة مصابيح لفتح طرق)\n- جمع شظايا الذكريات (Collectibles) في كل منطقة\n- نظام حوار بسيط مع شخصيات من الماضي\n- تبديل بين الماضي والحاضر لحل بعض الألغاز",
+    "implementation": "**الخطوة 1: إعداد المشروع**\n- إنشاء مشروع Godot 4.5 جديد\n- إعداد إعدادات المشروع: الدقة 1920x1080، Pixel Art Mode\n\n**الخطوة 2: إنشاء المشاهد الأساسية**\n- Player.tscn: CharacterBody2D مع Sprite2D و CollisionShape2D\n- World.tscn: Node2D رئيسي مع TileMapLayer للأرضية\n- Memory Fragment.tscn: Area2D للذكريات القابلة للجمع\n\n**الخطوة 3: برمجة الحركة**\n- سكريبت Player.gd: حركة أفقية، قفز، رسوم متحركة\n- استخدام Input.get_axis() للحركة السلسة\n- معالجة الجاذبية مع move_and_slide()\n\n**الخطوة 4: نظام الألغاز**\n- سكريبت LightPuzzle.gd: إضاءة/إطفاء المصابيح\n- سكريبت Door.gd: أبواب تفتح عند حل اللغز\n\n**الخطوة 5: إدارة المستويات**\n- سكريبت LevelManager.gd: تحميل المستويات، حفظ التقدم\n- نظام حفظ بسيط باستخدام JSON",
+    "scenes": "- Player.tscn\n- World.tscn\n- DesertZone1.tscn\n- DesertZone2.tscn\n- MemoryFragment.tscn\n- LightPuzzle.tscn\n- Door.tscn\n- UI/MainMenu.tscn\n- UI/HUD.tscn\n- UI/PauseMenu.tscn",
+    "scripts": "- Player.gd (حركة اللاعب)\n- LightPuzzle.gd (منطق الألغاز)\n- MemoryFragment.gd (جمع الذكريات)\n- Door.gd (أبواب تفاعلية)\n- LevelManager.gd (إدارة المستويات)\n- GameManager.gd (حالة اللعبة العامة)\n- DialogueSystem.gd (نظام الحوار)\n- SaveSystem.gd (حفظ/تحميل)",
+    "assets": "**الرسومات:**\n- player_spritesheet.png (رسوم متحركة: idle, walk, jump)\n- desert_tileset.png (رمال، صخور، كثبان)\n- memory_fragment.png (أيقونة الذكرى)\n- light_lamp.png (المصباح)\n- door_spritesheet.png (الباب)\n\n**الأصوات:**\n- jump.wav\n- collect_memory.wav\n- door_open.wav\n- ambient_desert.ogg (موسيقى خلفية)\n\n**الخطوط:**\n- arabic_font.ttf (لدعم النصوص العربية)",
+    "expansion": "- إضافة قدرات جديدة (dash، wall jump)\n- مناطق سرية مع ذكريات إضافية\n- Boss Fights في نهاية كل منطقة\n- نظام إنجازات\n- وضع Time Trial"
+  },
+  {
+    "title": "حارس الغابة",
+    "genre": "2D Top-Down Action",
+    "story": "أنت حارس غابة قديمة تعرضت للتلوث من مصنع قريب. الحيوانات أصبحت عدوانية، والأشجار تموت. مهمتك تنظيف الغابة، شفاء الحيوانات، وإيقاف مصدر التلوث قبل فوات الأوان.",
+    "mechanics": "- حركة Top-Down في 8 اتجاهات\n- قتال بسيط بالسيف والقوس\n- جمع موارد (أخشاب، أعشاب طبية)\n- صناعة أدوات وترقيات\n- شفاء الحيوانات المصابة\n- زراعة أشجار جديدة",
+    "implementation": "**الخطوة 1: الحركة والكاميرا**\n- CharacterBody2D بحركة 8 اتجاهات\n- Camera2D تتبع اللاعب مع Smoothing\n\n**الخطوة 2: نظام القتال**\n- Weapon.gd: سلاح أساسي (سيف)\n- Projectile.gd: سهام للقوس\n- Enemy.gd: أعداء بسيطة تتبع اللاعب\n\n**الخطوة 3: نظام الموارد**\n- Inventory.gd: مخزون اللاعب\n- Crafting.gd: نظام صناعة\n- Resource.gd: موارد قابلة للجمع\n\n**الخطوة 4: البيئة**\n- Tree.gd: أشجار قابلة للزراعة\n- PollutedArea.gd: مناطق ملوثة\n- AnimalNPC.gd: حيوانات قابلة للشفاء",
+    "scenes": "- Player.tscn\n- Forest.tscn\n- Enemy.tscn\n- Tree.tscn\n- Resource.tscn\n- CraftingStation.tscn\n- UI/Inventory.tscn\n- UI/Crafting.tscn\n- UI/HealthBar.tscn",
+    "scripts": "- Player.gd\n- Weapon.gd\n- Enemy.gd\n- Inventory.gd\n- Crafting.gd\n- Tree.gd\n- ResourceNode.gd\n- AnimalNPC.gd\n- GameManager.gd",
+    "assets": "**الرسومات:**\n- player_topdown.png\n- enemies_spritesheet.png\n- forest_tileset.png\n- trees_variations.png\n- resources_icons.png\n\n**الأصوات:**\n- sword_swing.wav\n- arrow_shoot.wav\n- tree_plant.wav\n- forest_ambience.ogg",
+    "expansion": "- نظام طقس ديناميكي\n- حيوانات أليفة تساعدك\n- قرية يمكن ترقيتها\n- مهمات جانبية من السكان\n- وضع Endless Mode"
+  },
+  {
+    "title": "مختبر الزمن",
+    "genre": "2D Puzzle Platformer",
+    "story": "عالم شاب يكتشف جهاز سفر عبر الزمن في مختبر جده المهجور. لكن الجهاز معطوب ويرسله عشوائياً عبر فترات زمنية مختلفة. يجب عليه جمع قطع الجهاز المفقودة من عصور مختلفة ليعود للحاضر.",
+    "mechanics": "- القفز بين الماضي والحاضر والمستقبل\n- كل عصر له فيزياء مختلفة (جاذبية، سرعة)\n- حل ألغاز باستخدام الأشياء من عصور مختلفة\n- تفادي Paradoxes الزمنية\n- جمع قطع الآلة من 5 عصور مختلفة",
+    "implementation": "**الخطوة 1: نظام السفر عبر الزمن**\n- TimeManager.gd: إدارة العصر الحالي\n- تبديل TileMap و Background حسب العصر\n- تغيير Physics Settings حسب العصر\n\n**الخطوة 2: الألغاز الزمنية**\n- TimePuzzle.gd: ألغاز تتطلب التنقل بين العصور\n- TimeObject.gd: أشياء تظهر/تختفي حسب العصر\n\n**الخطوة 3: المستويات**\n- 5 مستويات، كل واحد يمثل عصر\n- LevelTransition.gd: انتقالات سلسة بين المستويات\n\n**الخطوة 4: واجهة المستخدم**\n- TimeUI.gd: عرض العصر الحالي\n- PartsCollected.gd: عداد القطع المجمعة",
+    "scenes": "- Player.tscn\n- Lab_Present.tscn\n- Lab_Past.tscn\n- Lab_Future.tscn\n- TimeMachine.tscn\n- MachinePart.tscn\n- TimePortal.tscn\n- UI/TimeIndicator.tscn",
+    "scripts": "- Player.gd\n- TimeManager.gd\n- TimePuzzle.gd\n- TimeObject.gd\n- MachinePart.gd\n- TimePortal.gd\n- LevelTransition.gd\n- ParadoxChecker.gd",
+    "assets": "**الرسومات:**\n- player_scientist.png\n- lab_past_tileset.png\n- lab_present_tileset.png\n- lab_future_tileset.png\n- time_portal.png\n- machine_parts.png\n\n**الأصوات:**\n- time_travel.wav\n- portal_activate.wav\n- part_collect.wav\n- era_music_past.ogg\n- era_music_future.ogg",
+    "expansion": "- عصور إضافية (ديناصورات، فضاء)\n- تأثيرات Butterfly Effect\n- وضع Race Against Time\n- ألغاز معقدة أكثر\n- شخصيات من عصور مختلفة"
+  },
+  {
+    "title": "قلعة الأشباح",
+    "genre": "2D Horror Platformer",
+    "story": "طفلة صغيرة تدخل قلعة مهجورة بحثاً عن قطتها المفقودة، لتكتشف أن القلعة مسكونة بالأشباح. يجب عليها التسلل، حل الألغاز، والهروب من الأشباح لإنقاذ قطتها والخروج حية.",
+    "mechanics": "- التخفي والتسلل (Stealth)\n- استخدام الضوء لصد الأشباح\n- حل ألغاز بيئية لفتح الطرق\n- إدارة البطارية (الضوء محدود)\n- QTE للهروب من المطاردات\n- جو رعب نفسي بدون عنف",
+    "implementation": "**الخطوة 1: نظام التخفي**\n- StealthSystem.gd: كشف اللاعب من الأعداء\n- VisibilityCone.gd: مخروط رؤية الأشباح\n- HidingSpot.gd: أماكن اختباء\n\n**الخطوة 2: نظام الضوء**\n- Flashlight.gd: مصباح قابل للتحكم\n- Battery.gd: إدارة الطاقة\n- LightRepel.gd: صد الأشباح بالضوء\n\n**الخطوة 3: الأعداء**\n- Ghost.gd: ذكاء اصطناعي بسيط للدورية\n- ChaseState.gd: حالة المطاردة\n\n**الخطوة 4: الأجواء**\n- AmbientSound.gd: أصوات مخيفة\n- LightFlicker.gd: وميض الأنوار\n- CameraShake.gd: اهتزاز الكاميرا",
+    "scenes": "- Player.tscn\n- Castle.tscn\n- Ghost.tscn\n- HidingSpot.tscn\n- Flashlight.tscn\n- Battery.tscn\n- CatNPC.tscn\n- UI/BatteryBar.tscn\n- UI/ScareEffect.tscn",
+    "scripts": "- Player.gd\n- StealthSystem.gd\n- Ghost.gd\n- Flashlight.gd\n- Battery.gd\n- HidingSpot.gd\n- CameraShake.gd\n- JumpscareManager.gd\n- AmbientController.gd",
+    "assets": "**الرسومات:**\n- girl_sprite.png\n- castle_dark_tileset.png\n- ghosts_variations.png\n- flashlight_beam.png\n- cat_sprite.png\n- hiding_furniture.png\n\n**الأصوات:**\n- heartbeat.wav\n- ghost_whisper.wav\n- footsteps_echo.wav\n- door_creak.wav\n- jumpscare.wav\n- castle_ambience.ogg\n- creepy_music.ogg",
+    "expansion": "- غرف سرية مع قصص جانبية\n- أنواع أشباح مختلفة بسلوكيات مختلفة\n- نهايات متعددة\n- وضع New Game Plus أصعب\n- تحديات زمنية"
+  },
+  {
+    "title": "مزرعة السماء",
+    "genre": "2D Farming Simulation",
+    "story": "ورثت مزرعة جدك الطائرة في السماء. المزرعة على جزر سحابية عائمة، يجب عليك زراعة محاصيل سحرية، تربية طيور نادرة، والتجارة مع جزر سماوية أخرى لإعادة المزرعة لمجدها السابق.",
+    "mechanics": "- زراعة وحصاد محاصيل\n- تربية حيوانات طائرة\n- صيد في بحيرات سحابية\n- توسيع المزرعة بجزر جديدة\n- تجارة مع NPCs\n- تغيير الطقس يؤثر على المحاصيل\n- نظام مواسم",
+    "implementation": "**الخطوة 1: نظام الزراعة**\n- FarmTile.gd: بلاطات قابلة للزراعة\n- Crop.gd: نمو المحاصيل مع مراحل\n- Tool.gd: أدوات (مجرفة، علبة ري)\n\n**الخطوة 2: نظام الوقت**\n- TimeSystem.gd: دورة يوم/ليلة\n- SeasonManager.gd: نظام الفصول\n- WeatherSystem.gd: الطقس الديناميكي\n\n**الخطوة 3: الحيوانات والموارد**\n- Animal.gd: حيوانات قابلة للتربية\n- ResourceProducer.gd: إنتاج البيض، الحليب، إلخ\n\n**الخطوة 4: التجارة**\n- ShopNPC.gd: محلات البيع\n- Inventory.gd: مخزون اللاعب\n- MarketPrices.gd: أسعار متغيرة",
+    "scenes": "- Player.tscn\n- SkyIsland.tscn\n- FarmTile.tscn\n- Crop.tscn\n- Animal.tscn\n- ShopNPC.tscn\n- CloudLake.tscn\n- UI/Inventory.tscn\n- UI/Calendar.tscn\n- UI/Shop.tscn",
+    "scripts": "- Player.gd\n- FarmTile.gd\n- Crop.gd\n- Tool.gd\n- TimeSystem.gd\n- SeasonManager.gd\n- Animal.gd\n- Inventory.gd\n- ShopNPC.gd\n- SaveManager.gd",
+    "assets": "**الرسومات:**\n- player_farmer.png\n- sky_island_tileset.png\n- crops_spritesheet.png (مراحل النمو)\n- animals_flying.png\n- tools_icons.png\n- clouds_parallax.png\n\n**الأصوات:**\n- plant_seed.wav\n- water_crop.wav\n- harvest.wav\n- animal_sounds.wav\n- wind_ambience.ogg\n- peaceful_music.ogg",
+    "expansion": "- مهمات من سكان الجزر\n- أحداث موسمية ومهرجانات\n- ترقيات للمزرعة والأدوات\n- زواج وعائلة\n- كهوف سرية تحت الجزر\n- سباقات طيران"
+  },
+  {
+    "title": "محقق المدينة",
+    "genre": "2D Detective Adventure",
+    "story": "محقق خاص في مدينة ممطرة دائماً، يتلقى قضايا غامضة يومياً. كل قضية لغز يجب حله بجمع الأدلة، استجواب الشهود، وربط المعلومات. القضية الكبرى: من وراء اختفاء رئيس المدينة؟",
+    "mechanics": "- استكشاف المدينة بحرية\n- جمع أدلة وتحليلها\n- نظام حوار متشعب\n- ربط الأدلة لحل الألغاز\n- اختيارات تؤثر على القصة\n- دفتر ملاحظات تفاعلي\n- Mini-games للتحليل",
+    "implementation": "**الخطوة 1: نظام التحقيق**\n- Evidence.gd: أدلة قابلة للجمع والفحص\n- Clue.gd: معلومات من الحوارات\n- NotebookSystem.gd: دفتر ملاحظات\n\n**الخطوة 2: نظام الحوار**\n- DialogueManager.gd: حوارات متشعبة\n- NPCDialogue.gd: شخصيات قابلة للاستجواب\n- ChoiceSystem.gd: اختيارات اللاعب\n\n**الخطوة 3: حل الألغاز**\n- PuzzleConnector.gd: ربط الأدلة\n- DeductionBoard.gd: لوحة الاستنتاجات\n\n**الخطوة 4: المدينة**\n- CityMap.gd: خريطة تفاعلية\n- Location.gd: مواقع قابلة للزيارة\n- TimeProgression.gd: تقدم الوقت",
+    "scenes": "- Detective.tscn\n- CityStreet.tscn\n- CrimeScene.tscn\n- NPC.tscn\n- Evidence.tscn\n- UI/Notebook.tscn\n- UI/DeductionBoard.tscn\n- UI/DialogueBox.tscn\n- UI/CaseFile.tscn",
+    "scripts": "- Detective.gd\n- Evidence.gd\n- NotebookSystem.gd\n- DialogueManager.gd\n- PuzzleConnector.gd\n- CityMap.gd\n- CaseManager.gd\n- NPCDialogue.gd\n- SaveSystem.gd",
+    "assets": "**الرسومات:**\n- detective_sprite.png\n- city_rainy_tileset.png\n- npc_variations.png\n- evidence_items.png\n- notebook_ui.png\n- rain_particles.png\n\n**الأصوات:**\n- footsteps_wet.wav\n- page_turn.wav\n- camera_shutter.wav\n- deduction_success.wav\n- rain_ambience.ogg\n- noir_music.ogg",
+    "expansion": "- قضايا فرعية متعددة\n- سمعة المحقق تتأثر بالحلول\n- شركاء محققين\n- نظام إعادة تحقيق\n- نهايات متعددة لكل قضية\n- وضع Detective Mode الصعب"
+  }
+]
