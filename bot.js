@@ -2,7 +2,16 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const {
+  Client,
+  GatewayIntentBits,
+  REST,
+  Routes,
+  SlashCommandBuilder,
+  PermissionFlagsBits,
+  ChannelType,
+  PermissionsBitField
+} = require('discord.js');
 
 const TOKEN = process.env.BOT_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID || null;
@@ -122,6 +131,30 @@ async function registerCommands() {
       .setDescription('يحدد روم البوت (للأدمن فقط)')
       .addChannelOption(opt => opt.setName('channel').setDescription('اختر الروم').setRequired(true))
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+      .toJSON(),
+
+    // -- أمر الغرف الخاصة --
+    new SlashCommandBuilder()
+      .setName('private')
+      .setDescription('إنشاء أو حذف غرفة نصية خاصة لعضو محدد')
+      .addSubcommand(subcommand =>
+        subcommand.setName('create')
+          .setDescription('ينشئ غرفة خاصة لعضو محدد')
+          .addUserOption(option =>
+            option.setName('member')
+              .setDescription('اختر العضو الذي تريد إنشاء الغرفة له')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand.setName('delete')
+          .setDescription('يحذف الغرفة الخاصة بالعضو')
+          .addUserOption(option =>
+            option.setName('member')
+              .setDescription('اختر العضو الذي تريد حذف غرفته')
+              .setRequired(true)
+          )
+      )
       .toJSON()
   ];
 
@@ -254,6 +287,9 @@ client.on('interactionCreate', async (interaction) => {
 
 ⚙️ \`/setbotroom\` - تحديد روم البوت (للأدمن)
 
+🛡️ \`/private create @member\` - ينشئ روم خاص بالعضو المحدد (العضو فقط سيرى الروم)
+🗑️ \`/private delete @member\` - يحذف روم الخاص بالعضو (إذا كان موجود)
+
 📌 **ملاحظة:** البوت يعمل الآن بنظام Slash Commands فقط
 `;
 
@@ -268,10 +304,71 @@ client.on('interactionCreate', async (interaction) => {
       await interaction.reply({ content: `✅ تم تعيين روم البوت: <#${channel.id}>`, ephemeral: false });
     }
 
+    // === معالجة أمر الغرف الخاصة ===
+    else if (interaction.commandName === 'private') {
+      const subcommand = interaction.options.getSubcommand();
+      const member = interaction.options.getUser('member');
+      const guild = interaction.guild;
+
+      if (!member) return interaction.reply({ content: 'العضو غير موجود!', ephemeral: true });
+
+      // نستخدم اسم فريد (مع جزء من الـ id) لتفادي التعارض مع تغيُّر اسم المستخدم
+      const safeName = member.username.toLowerCase().replace(/[^a-z0-9\-]/g, '-').slice(0, 20);
+      const channelName = `private-${safeName}-${member.id.slice(0,6)}`;
+
+      if (subcommand === 'create') {
+        // تحقق إذا الغرفة موجودة
+        const existingChannel = guild.channels.cache.find(ch => ch.name === channelName && ch.type === ChannelType.GuildText);
+        if (existingChannel) return interaction.reply({ content: 'الغرفة الخاصة بهذا العضو موجودة بالفعل!', ephemeral: true });
+
+        try {
+          const channel = await guild.channels.create({
+            name: channelName,
+            type: ChannelType.GuildText,
+            permissionOverwrites: [
+              {
+                id: guild.id,
+                deny: [PermissionsBitField.Flags.ViewChannel],
+              },
+              {
+                id: member.id,
+                allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
+              },
+              {
+                id: interaction.client.user.id,
+                allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels, PermissionsBitField.Flags.ReadMessageHistory],
+              },
+            ],
+          });
+
+          await interaction.reply({ content: `✅ تم إنشاء غرفة خاصة للعضو ${member.username}: <#${channel.id}>`, ephemeral: true });
+        } catch (err) {
+          console.error('خطأ أثناء إنشاء القناة الخاصة:', err);
+          await interaction.reply({ content: '❌ فشل إنشاء الغرفة. تأكد أن البوت يمتلك صلاحية Manage Channels.', ephemeral: true });
+        }
+
+      } else if (subcommand === 'delete') {
+        const existingChannel = guild.channels.cache.find(ch => ch.name === channelName && ch.type === ChannelType.GuildText);
+        if (!existingChannel) return interaction.reply({ content: 'لم يتم العثور على غرفة خاصة بهذا العضو!', ephemeral: true });
+
+        try {
+          await existingChannel.delete();
+          await interaction.reply({ content: `🗑️ تم حذف الغرفة الخاصة بالعضو ${member.username}`, ephemeral: true });
+        } catch (err) {
+          console.error('خطأ أثناء حذف القناة الخاصة:', err);
+          await interaction.reply({ content: '❌ فشل حذف الغرفة. تأكد أن البوت يمتلك صلاحية Manage Channels.', ephemeral: true });
+        }
+      }
+    }
+
   } catch(e) { 
     console.error('❌ خطأ في معالجة الأمر:', e);
-    if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: 'حدث خطأ أثناء تنفيذ الأمر', ephemeral: true });
+    try {
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: 'حدث خطأ أثناء تنفيذ الأمر', ephemeral: true });
+      }
+    } catch (err) {
+      console.error('خطأ في إرسال رسالة الخطأ:', err);
     }
   }
 });
